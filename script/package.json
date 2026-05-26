@@ -1,0 +1,23 @@
+{
+  "name": "robet-scripts",
+  "private": true,
+  "scripts": {
+    "deploy":         "ts-node deploy.ts",
+    "deploy:staking": "DOTENV_CONFIG_PATH=../.env ts-node -r dotenv/config deploy-staking.ts",
+    "keeper":        "DOTENV_CONFIG_PATH=../.env ts-node -r dotenv/config keeper.ts",
+    "keeper:once":   "DOTENV_CONFIG_PATH=../.env ts-node -r dotenv/config keeper.ts --once",
+    "sweeper":       "DOTENV_CONFIG_PATH=../.env ts-node -r dotenv/config sweeper.ts",
+    "sweeper:once":  "DOTENV_CONFIG_PATH=../.env ts-node -r dotenv/config sweeper.ts --once",
+    "bot":           "DOTENV_CONFIG_PATH=../.env ts-node -r dotenv/config bot.ts",
+    "bot:once":      "DOTENV_CONFIG_PATH=../.env ts-node -r dotenv/config bot.ts --once"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

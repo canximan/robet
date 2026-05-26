@@ -1,0 +1,14 @@
+cache/
+out/
+broadcast/
+lib/*
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+**/node_modules
+**/dist
+**/.next
+frontend/.next
+frontend/data
