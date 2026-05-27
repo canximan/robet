@@ -27,9 +27,16 @@ function formatDuration(seconds: number): string {
 }
 
 function bpsToPct(bps: bigint): string {
-  // 1500 bps → "15.00 %"
   const v = Number(bps) / 100
   return `${v.toFixed(2)} %`
+}
+
+function formatDate(ts: number): string {
+  if (ts <= 0) return '-'
+  return new Date(ts * 1000).toLocaleString(undefined, {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 export function StakingPanel() {
@@ -90,6 +97,10 @@ export function StakingPanel() {
     ? Math.min(100, ((now - stakedAtSec) / lockPeriod) * 100)
     : 0
   const eligibleForRoll = stakedAmount >= minStake && stakedAtSec > 0 && lockRemaining === 0
+
+  const sharePct  = totalStaked > 0n && stakedAmount > 0n
+    ? Number(stakedAmount * 10000n / totalStaked) / 100
+    : 0
 
   const diceRolls = nftThreshold > 0n
     ? Number(stakedAmount / nftThreshold)
@@ -255,97 +266,112 @@ export function StakingPanel() {
 
           {stakedAmount === 0n ? (
             <p className="text-sm text-muted">
-              You aren&apos;t staked. Stake at least <span className="text-white font-medium">{formatRon(minStake)}</span> to earn PoD rewards;
-              every <span className="text-white font-medium">{formatRon(nftThreshold)}</span> grants one dice roll for an NFT each 1 day.
+              You aren&apos;t staked. Stake at least <span className="text-white font-medium">{formatRon(minStake)}</span> to
+              earn a share of the 60 % PoD allocation routed to this pool.
+              Every <span className="text-white font-medium">{formatRon(nftThreshold)}</span> staked grants one dice roll
+              for a chance to mint a Robet NFT each lock cycle.
             </p>
           ) : (
             <>
-              {/* Stake amount + lock progress */}
-              <div className="flex items-baseline justify-between text-sm">
-                <span className="text-muted">Staked</span>
-                <span className="font-mono text-white">{formatRon(stakedAmount)}</span>
+              {/* ── Position summary ── */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-bg rounded-lg py-2 px-1">
+                  <p className="text-[10px] text-muted mb-0.5">Staked</p>
+                  <p className="text-sm font-semibold font-mono text-white truncate">{formatRon(stakedAmount, 0)}</p>
+                </div>
+                <div className="bg-bg rounded-lg py-2 px-1">
+                  <p className="text-[10px] text-muted mb-0.5">Pool share</p>
+                  <p className="text-sm font-semibold font-mono text-white">{sharePct.toFixed(2)} %</p>
+                </div>
+                <div className="bg-bg rounded-lg py-2 px-1">
+                  <p className="text-[10px] text-muted mb-0.5">Dice rolls</p>
+                  <p className="text-sm font-semibold font-mono text-white">{diceRolls > 0 ? `${diceRolls} 🎲` : '—'}</p>
+                </div>
               </div>
 
-              {/* Sub-threshold helper: explain why no roll button is shown. */}
-              {stakedAmount >= minStake && diceRolls === 0 && (
-                <div className="text-xs border border-yellow-500/30 bg-yellow-500/5 rounded-lg px-3 py-2 text-yellow-300">
-                  Earning PoD only. Stake <span className="font-mono">{formatRon(nftThreshold - stakedAmount)}</span> more
-                  to unlock 1 dice roll per claim.
+              {/* ── Staking rewards (lead section) ── */}
+              <div className="flex flex-col gap-2 pt-1 border-t border-border">
+                <div className="flex items-baseline justify-between text-xs text-muted">
+                  <span>Reward source</span>
+                  <span>60 % of protocol PoD sweep · pro-rata by stake</span>
                 </div>
-              )}
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-muted">Claimable now</span>
+                  <span className="font-mono text-purple-400 font-semibold text-base">{formatRon(pendingPod)}</span>
+                </div>
+                <p className="text-[11px] text-muted leading-relaxed">
+                  Rewards accumulate each time the off-chain sweeper forwards the PoD batch.
+                  Claiming does not reset your lock or dice-roll progress.
+                </p>
+                <button
+                  disabled={busy || pendingPod === 0n}
+                  onClick={handleClaimReward}
+                  className="w-full py-2.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-400 text-sm font-medium hover:bg-purple-500/25 disabled:opacity-50 transition-colors"
+                >
+                  {busy && pendingAction.current?.kind === 'claimReward'
+                    ? 'Claiming…'
+                    : pendingPod === 0n
+                      ? 'Nothing to claim yet'
+                      : `Claim ${formatRon(pendingPod)}`}
+                </button>
+              </div>
 
-              {stakedAmount >= minStake && diceRolls > 0 && (
-                <div>
-                  <div className="flex items-baseline justify-between text-xs mb-1.5">
-                    <span className="text-muted">Lock period</span>
-                    <span className="font-mono">
+              {/* ── NFT dice roll ── */}
+              {stakedAmount >= minStake && (
+                <div className="flex flex-col gap-2 pt-1 border-t border-border">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted font-medium">NFT dice roll</span>
+                    <span className="text-muted">
                       {eligibleForRoll
-                        ? <span className="text-over">ready to roll</span>
-                        : <span className="text-white">{formatDuration(lockRemaining)} left</span>}
+                        ? <span className="text-over">ready</span>
+                        : <>unlocks <span className="text-white font-mono">{formatDate(lockEnd)}</span></>}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-border overflow-hidden">
-                    <div
-                      className={`h-full transition-all ${eligibleForRoll ? 'bg-over' : 'bg-accent'}`}
-                      style={{ width: `${lockProgress}%` }}
-                    />
-                  </div>
+
+                  {diceRolls === 0 ? (
+                    <div className="text-xs border border-yellow-500/30 bg-yellow-500/5 rounded-lg px-3 py-2 text-yellow-300">
+                      Stake <span className="font-mono">{formatRon(nftThreshold - stakedAmount)}</span> more to unlock 1 dice roll per cycle.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${eligibleForRoll ? 'bg-over' : 'bg-accent'}`}
+                          style={{ width: `${lockProgress}%` }}
+                        />
+                      </div>
+                      <div className="flex items-baseline justify-between text-xs text-muted">
+                        <span>{formatDuration(lockRemaining)} remaining</span>
+                        <span>≈ <span className="text-white font-mono">{expectedMintsPerClaim.toFixed(2)}</span> NFTs / roll · {bpsToPct(probBps)} chance</span>
+                      </div>
+                      <button
+                        disabled={busy || !eligibleForRoll}
+                        onClick={handleRoll}
+                        className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-semibold hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {busy && pendingAction.current?.kind === 'roll'
+                          ? 'Rolling…'
+                          : eligibleForRoll
+                            ? `🎲 Roll ${diceRolls} ${diceRolls === 1 ? 'die' : 'dice'} & restake`
+                            : `🔒 ${formatDuration(lockRemaining)} left`}
+                      </button>
+                    </>
+                  )}
+
+                  {lastRollOutcome && (
+                    <div className={`text-sm border rounded-lg px-4 py-3 ${
+                      lastRollOutcome.minted > 0
+                        ? 'border-over/40 bg-over/10 text-over'
+                        : 'border-border bg-bg text-muted'
+                    }`}>
+                      {lastRollOutcome.minted > 0
+                        ? <span>🎉 Minted <span className="font-semibold">{lastRollOutcome.minted}</span> NFT{lastRollOutcome.minted > 1 ? 's' : ''} from {lastRollOutcome.rolls} rolls</span>
+                        : <span>No luck — {lastRollOutcome.rolls} {lastRollOutcome.rolls === 1 ? 'roll' : 'rolls'}, 0 mints.</span>}
+                      {' '}
+                      <a href={explorerTxUrl(lastRollOutcome.tx, chainId)} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">tx ↗</a>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {diceRolls > 0 && (
-                <p className="text-xs text-muted">
-                  Expected per claim: <span className="text-white font-mono">≈ {expectedMintsPerClaim.toFixed(2)}</span> NFTs
-                </p>
-              )}
-
-              {/* Roll dice */}
-              {diceRolls > 0 && (
-                <button
-                  disabled={busy || !eligibleForRoll}
-                  onClick={handleRoll}
-                  className="w-full py-2.5 rounded-lg bg-accent text-white text-sm font-semibold hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  {busy && pendingAction.current?.kind === 'roll'
-                    ? 'Rolling…'
-                    : eligibleForRoll
-                      ? `🎲 Roll ${diceRolls} dice & restake`
-                      : `🎲 Locked - ${formatDuration(lockRemaining)} left`}
-                </button>
-              )}
-
-              {/* Outcome of the most recent roll */}
-              {lastRollOutcome && (
-                <div className={`text-sm border rounded-lg px-4 py-3 ${
-                  lastRollOutcome.minted > 0
-                    ? 'border-over/40 bg-over/10 text-over'
-                    : 'border-border bg-bg text-muted'
-                }`}>
-                  {lastRollOutcome.minted > 0
-                    ? <span>🎉 Minted <span className="font-semibold">{lastRollOutcome.minted}</span> NFT from {lastRollOutcome.rolls} rolls</span>
-                    : <span>🎲 No luck - {lastRollOutcome.rolls} rolls, 0 mints. Try again in 1 day.</span>}
-                  {' '}
-                  <a
-                    href={explorerTxUrl(lastRollOutcome.tx, chainId)}
-                    target="_blank" rel="noopener noreferrer"
-                    className="underline hover:no-underline"
-                  >tx ↗</a>
-                </div>
-              )}
-
-              {/* PoD pending */}
-              <div className="flex items-baseline justify-between text-sm pt-3 border-t border-border">
-                <span className="text-muted">Pending PoD</span>
-                <span className="font-mono text-purple-400 font-semibold">{formatRon(pendingPod)}</span>
-              </div>
-              {pendingPod > 0n && (
-                <button
-                  disabled={busy}
-                  onClick={handleClaimReward}
-                  className="w-full py-2 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-400 text-sm font-medium hover:bg-purple-500/25 disabled:opacity-50 transition-colors"
-                >
-                  {busy && pendingAction.current?.kind === 'claimReward' ? 'Claiming…' : `Claim ${formatRon(pendingPod)} PoD`}
-                </button>
               )}
             </>
           )}
