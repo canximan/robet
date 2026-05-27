@@ -22,7 +22,7 @@ export function Footer() {
 
   return (
     <footer className="border-t border-border">
-      <div className="max-w-2xl mx-auto w-full px-4 py-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted">
+      <div className="max-w-4xl mx-auto w-full px-4 py-4 flex flex-wrap sm:flex-nowrap items-center gap-x-5 gap-y-2 text-xs text-muted">
 
         {CONTRACTS.filter(c => c.address !== ZERO).map(({ label, address }) => (
           <a
@@ -42,7 +42,7 @@ export function Footer() {
             href={GITHUB_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-auto hover:text-white transition-colors"
+            className="hover:text-white transition-colors"
           >
             GitHub ↗
           </a>

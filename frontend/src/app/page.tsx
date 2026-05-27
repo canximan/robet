@@ -164,14 +164,14 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-border">
+        <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-none">
           {TABS.map(t => (
             <button
               key={t.id}
               onClick={() => selectTab(t.id)}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium transition-colors relative ${
                 tab === t.id
                   ? 'text-white after:absolute after:bottom-0 after:inset-x-0 after:h-0.5 after:bg-accent'
                   : 'text-muted hover:text-white'
